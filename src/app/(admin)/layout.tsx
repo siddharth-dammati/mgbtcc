@@ -24,8 +24,12 @@ export default function AdminLayout({
     if (!loading) {
       if (!user) {
         router.push("/login");
-      } else if (user.email !== "dsvsiddharth@gmail.com") {
-        router.replace("/my-squad");
+      } else {
+        // Enforce the admin password modal check
+        const hasAccess = sessionStorage.getItem("adminAccess") === "granted";
+        if (!hasAccess) {
+          router.replace("/my-squad");
+        }
       }
     }
   }, [user, loading, router]);
@@ -56,7 +60,7 @@ export default function AdminLayout({
     show: { opacity: 1, x: 0 }
   };
 
-  if (loading || !user || user.email !== "dsvsiddharth@gmail.com") {
+  if (loading || !user) {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center">
         <div className="size-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>

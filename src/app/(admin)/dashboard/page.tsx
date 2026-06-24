@@ -45,6 +45,9 @@ export default function DashboardOverview() {
     pending: 0,
     approved: 0,
   });
+  
+  const [dynamicRegistrationData, setDynamicRegistrationData] = useState<any[]>([]);
+  const [dynamicLanguageData, setDynamicLanguageData] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchStats() {
@@ -55,11 +58,45 @@ export default function DashboardOverview() {
         let pending = 0;
         let approved = 0;
         
+        const dateCounts: Record<string, number> = {};
+
         teamsSnapshot.forEach(doc => {
           const data = doc.data();
           if (data.status === "Pending") pending++;
           if (data.status === "Approved") approved++;
+          
+          if (data.createdAt) {
+            // Group by formatted date (e.g., 'Jun 24')
+            const dateObj = new Date(data.createdAt);
+            const dateStr = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            dateCounts[dateStr] = (dateCounts[dateStr] || 0) + 1;
+          }
         });
+
+        // Convert date counts to sorted array
+        const sortedDates = Object.keys(dateCounts).sort((a, b) => new Date(`${a}, ${new Date().getFullYear()}`).getTime() - new Date(`${b}, ${new Date().getFullYear()}`).getTime());
+        const regData = sortedDates.map(date => ({
+          name: date,
+          squads: dateCounts[date]
+        }));
+        
+        // If empty, supply dummy to prevent empty chart
+        setDynamicRegistrationData(regData.length > 0 ? regData : [{ name: "Today", squads: 0 }]);
+
+        const langCounts: Record<string, number> = {};
+        playersSnapshot.forEach(doc => {
+          const data = doc.data();
+          if (data.primaryLanguage) {
+            langCounts[data.primaryLanguage] = (langCounts[data.primaryLanguage] || 0) + 1;
+          }
+        });
+
+        const langData = Object.keys(langCounts).map(lang => ({
+          name: lang,
+          players: langCounts[lang]
+        })).sort((a, b) => b.players - a.players); // Sort by highest count
+
+        setDynamicLanguageData(langData.length > 0 ? langData : [{ name: "None", players: 0 }]);
 
         setStats({
           totalSquads: teamsSnapshot.size,
@@ -166,7 +203,7 @@ export default function DashboardOverview() {
             <CardContent>
               <div className="h-[280px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={registrationData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                  <AreaChart data={dynamicRegistrationData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="colorSquads" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#eab308" stopOpacity={0.3}/>
@@ -174,7 +211,7 @@ export default function DashboardOverview() {
                       </linearGradient>
                     </defs>
                     <XAxis dataKey="name" stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                     <Tooltip 
                       contentStyle={{ backgroundColor: '#0a0a0c', borderColor: '#27272a', borderRadius: '8px' }}
@@ -199,16 +236,16 @@ export default function DashboardOverview() {
             <CardContent>
               <div className="h-[280px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={languageData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }} barSize={30}>
+                  <BarChart data={dynamicLanguageData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }} barSize={30}>
                     <XAxis dataKey="name" stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#52525b" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
                     <Tooltip 
                       contentStyle={{ backgroundColor: '#0a0a0c', borderColor: '#27272a', borderRadius: '8px' }}
                       cursor={{fill: 'rgba(255,255,255,0.02)'}}
                     />
                     <Bar dataKey="players" radius={[4, 4, 0, 0]}>
-                      {languageData.map((entry, index) => (
+                      {dynamicLanguageData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={BAR_COLORS[index % BAR_COLORS.length]} />
                       ))}
                     </Bar>

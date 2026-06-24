@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, doc, updateDoc, query, where } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, where, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   flexRender,
@@ -36,6 +36,7 @@ type Team = {
   currentStage: string;
   detectedLocation?: string;
   createdAt: string;
+  isCompleted?: boolean;
 };
 
 export default function TeamsManagementPage() {
@@ -50,8 +51,35 @@ export default function TeamsManagementPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const snapshot = await getDocs(collection(db, "teams"));
-      const teams = snapshot.docs.map(doc => doc.data() as Team);
+      const [teamsSnap, playersSnap] = await Promise.all([
+        getDocs(collection(db, "teams")),
+        getDocs(collection(db, "players"))
+      ]);
+
+      const players = playersSnap.docs.map(doc => doc.data());
+      const playersByTeam = players.reduce((acc: any, player: any) => {
+        if (!acc[player.teamId]) acc[player.teamId] = [];
+        acc[player.teamId].push(player);
+        return acc;
+      }, {});
+
+      const teams = teamsSnap.docs.map(doc => {
+        const t = doc.data() as Team;
+        const roster = playersByTeam[t.teamId] || [];
+        const mainPlayers = roster.filter((p: any) => !p.isSubstitute);
+        const allVerified = roster.every((p: any) => p.locationVerified);
+        
+        t.isCompleted = mainPlayers.length === 4 && allVerified && roster.length > 0;
+        return t;
+      });
+
+      // Sort: Completed first, then by date descending
+      teams.sort((a, b) => {
+        if (a.isCompleted && !b.isCompleted) return -1;
+        if (!a.isCompleted && b.isCompleted) return 1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
       setData(teams);
     } catch (error) {
       console.error("Error fetching teams", error);
@@ -98,11 +126,18 @@ export default function TeamsManagementPage() {
       accessorKey: "squadName",
       header: "Squad Name",
       cell: ({ row }) => (
-        <div className="flex items-center gap-3">
-          <div className="size-8 rounded bg-white/5 border border-white/10 flex items-center justify-center font-bold text-white text-xs">
-            {row.getValue<string>("squadName").substring(0, 2).toUpperCase()}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <div className="size-8 rounded bg-white/5 border border-white/10 flex items-center justify-center font-bold text-white text-xs shrink-0">
+              {row.getValue<string>("squadName").substring(0, 2).toUpperCase()}
+            </div>
+            <span className="font-bold text-white tracking-wide">{row.getValue("squadName")}</span>
           </div>
-          <span className="font-bold text-white tracking-wide">{row.getValue("squadName")}</span>
+          {row.original.isCompleted && (
+            <div className="flex items-center gap-1 mt-1 ml-11 text-[10px] text-emerald-500 font-bold uppercase tracking-widest">
+              <ShieldCheck className="size-3" /> Fully Verified
+            </div>
+          )}
         </div>
       ),
     },
@@ -177,6 +212,40 @@ export default function TeamsManagementPage() {
     onGlobalFilterChange: setGlobalFilter,
   });
 
+  const handleCleanup = async () => {
+    if (!confirm("Are you sure you want to delete all orphaned players (players whose team no longer exists)?")) return;
+    
+    setLoading(true);
+    try {
+      const [teamsSnap, playersSnap] = await Promise.all([
+        getDocs(collection(db, "teams")),
+        getDocs(collection(db, "players"))
+      ]);
+
+      // Get all valid team IDs
+      const validTeamIds = new Set(teamsSnap.docs.map(doc => doc.id));
+      
+      let deletedCount = 0;
+      
+      // Find orphaned players and delete them
+      for (const playerDoc of playersSnap.docs) {
+        const playerData = playerDoc.data();
+        if (!validTeamIds.has(playerData.teamId)) {
+          await deleteDoc(doc(db, "players", playerDoc.id));
+          deletedCount++;
+        }
+      }
+      
+      toast.success(`Cleanup complete. Removed ${deletedCount} orphaned players.`);
+      fetchData(); // Refresh UI
+    } catch (error) {
+      console.error("Cleanup error", error);
+      toast.error("An error occurred during database cleanup.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -198,9 +267,14 @@ export default function TeamsManagementPage() {
             className="pl-10 bg-white/[0.02] border-white/10 focus-visible:ring-primary/50 text-white"
           />
         </div>
-        <Button variant="outline" onClick={fetchData} className="w-full sm:w-auto border-white/10 hover:bg-white/5 transition-colors">
-          Refresh Data
-        </Button>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={handleCleanup} className="w-full sm:w-auto border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors">
+            Cleanup Database
+          </Button>
+          <Button variant="outline" onClick={fetchData} className="w-full sm:w-auto border-white/10 hover:bg-white/5 transition-colors">
+            Refresh Data
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden">
@@ -286,28 +360,6 @@ export default function TeamsManagementPage() {
           </div>
           
           <div className="p-6 space-y-6 bg-[#0a0a0c]">
-            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/10">
-              <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 flex items-center gap-2">
-                <MapPin className="size-3 text-primary" /> Location Telemetry
-              </h3>
-              <div className="flex items-center justify-between">
-                <p className="text-lg font-medium text-white">
-                  {selectedTeam?.detectedLocation || "Location unknown or not provided"}
-                </p>
-                {selectedTeam?.detectedLocation && !selectedTeam.detectedLocation.toLowerCase().includes("andhra") && !selectedTeam.detectedLocation.toLowerCase().includes("telangana") ? (
-                  <div className="flex items-center gap-2 text-yellow-500 bg-yellow-500/10 px-3 py-1.5 rounded-md border border-yellow-500/20">
-                    <ShieldAlert className="size-4" />
-                    <span className="text-xs font-bold uppercase tracking-wider">Outside Region</span>
-                  </div>
-                ) : selectedTeam?.detectedLocation ? (
-                  <div className="flex items-center gap-2 text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-md border border-emerald-500/20">
-                    <ShieldCheck className="size-4" />
-                    <span className="text-xs font-bold uppercase tracking-wider">Region Verified</span>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-
             <div>
               <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
                 <Users className="size-3 text-white" /> Active Roster
@@ -325,20 +377,39 @@ export default function TeamsManagementPage() {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.05 }}
                         key={p.playerId} 
-                        className={`p-4 rounded-xl border flex flex-col ${p.isSubstitute ? 'border-dashed border-white/10 bg-white/[0.01]' : 'border-white/10 bg-white/[0.03]'}`}
+                        className={`p-4 rounded-xl border flex flex-col relative ${p.isCaptain ? 'border-yellow-500/50 bg-yellow-500/5 shadow-[0_0_15px_rgba(234,179,8,0.1)]' : p.isSubstitute ? 'border-dashed border-white/10 bg-white/[0.01]' : 'border-white/10 bg-white/[0.03]'}`}
                       >
                         <div className="flex justify-between items-start mb-4 gap-2">
                           <div className="min-w-0 flex-1">
-                            <p className="font-bold text-white text-base truncate">{p.fullName}</p>
+                            <p className="font-bold text-white text-base truncate flex items-center gap-2">
+                              {p.fullName}
+                            </p>
                             <p className="text-xs text-primary font-bold flex items-center gap-1 mt-0.5 truncate">
                               <Gamepad2 className="size-3 shrink-0" /> <span className="truncate">{p.inGameName || "N/A"}</span>
                             </p>
                           </div>
-                          {p.isSubstitute ? (
-                            <Badge variant="outline" className="shrink-0 border-white/20 text-muted-foreground text-[10px] bg-black/50">SUB</Badge>
-                          ) : (
-                            <Badge variant="outline" className="shrink-0 bg-primary/10 text-primary border-primary/20 text-[10px]">MAIN</Badge>
-                          )}
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            {p.isCaptain ? (
+                              <Badge className="bg-yellow-500 text-black border-yellow-500 hover:bg-yellow-400 font-black text-[10px] tracking-widest px-2 py-0.5 uppercase shadow-[0_0_10px_rgba(234,179,8,0.5)]">CAPTAIN</Badge>
+                            ) : p.isSubstitute ? (
+                              <Badge variant="outline" className="border-white/20 text-muted-foreground text-[10px] bg-black/50">SUBSTITUTE</Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px]">MAIN PLAYER</Badge>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* EXPLICIT LOCATION STATUS */}
+                        <div className={`mb-4 p-2.5 rounded-lg border flex items-start gap-2 ${p.locationVerified ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500' : 'bg-destructive/10 border-destructive/30 text-destructive'}`}>
+                          {p.locationVerified ? <ShieldCheck className="size-4 mt-0.5 shrink-0" /> : <ShieldAlert className="size-4 mt-0.5 shrink-0" />}
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-[10px] font-bold uppercase tracking-wider">
+                              {p.locationVerified ? "Location Verified" : "Location Warning"}
+                            </span>
+                            <span className="text-xs font-medium truncate mt-0.5">
+                              {p.detectedLocation || "Unknown Location"}
+                            </span>
+                          </div>
                         </div>
 
                         <div className="space-y-2 text-xs flex-1">

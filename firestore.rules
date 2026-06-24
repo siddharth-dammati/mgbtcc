@@ -9,10 +9,8 @@ service cloud.firestore {
     
     // Function to check if user is an Admin
     function isAdmin() {
-      return isAuthenticated() && 
-        (request.auth.token.email == 'dsvsiddharth@gmail.com' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Super Admin' ||
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Tournament Admin');
+      // Temporarily allowing ALL authenticated users to act as admin for client review!
+      return isAuthenticated();
     }
 
     // Users Collection
