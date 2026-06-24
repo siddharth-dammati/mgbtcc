@@ -23,7 +23,7 @@ const matchSchema = z.object({
   scheduledTime: z.string().min(1, "Date/Time required"),
   roomId: z.string().optional(),
   roomPassword: z.string().optional(),
-  credentialsReleased: z.boolean().default(false),
+  credentialsReleased: z.boolean(),
   teams: z.array(z.string()).max(12, "Maximum 12 teams allowed per match"),
 });
 
