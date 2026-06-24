@@ -243,11 +243,9 @@ export default function MySquadDashboard() {
               <p className="text-muted-foreground mb-8">Already have a team? Ask your Captain for the 6-character Team Code to join their roster.</p>
               
               <Dialog open={isJoinModalOpen} onOpenChange={setIsJoinModalOpen}>
-                <DialogTrigger asChild>
-                  <Button className="mt-auto w-full h-12 bg-primary hover:bg-primary/90 text-black font-bold uppercase tracking-wider">
+                  <Button onClick={() => setIsJoinModalOpen(true)} className="mt-auto w-full h-12 bg-primary hover:bg-primary/90 text-black font-bold uppercase tracking-wider text-sm transition-all shadow-[0_0_15px_rgba(168,85,247,0.3)] hover:shadow-[0_0_25px_rgba(168,85,247,0.5)] border border-primary/50">
                     Join via Code
                   </Button>
-                </DialogTrigger>
                 <DialogContent className="max-w-md bg-[#0a0a0c] border-white/10 text-white max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle className="text-2xl font-heading text-primary uppercase">Join Squad</DialogTitle>

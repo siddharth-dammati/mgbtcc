@@ -62,16 +62,16 @@ export function Navbar() {
                 <Button variant="ghost" onClick={() => setIsAdminModalOpen(true)} className="hidden md:flex text-muted-foreground hover:text-white hover:bg-white/5 border border-transparent hover:border-white/10 uppercase text-xs tracking-wider font-bold">
                   Admin
                 </Button>
-                <Button asChild className="bg-primary/10 text-primary hover:bg-primary hover:text-black border border-primary/20 transition-colors uppercase text-xs tracking-wider font-bold">
-                  <Link href="/my-squad">My Squad</Link>
+                <Button render={<Link href="/my-squad" />} className="bg-primary/10 text-primary hover:bg-primary hover:text-black border border-primary/20 transition-colors uppercase text-xs tracking-wider font-bold">
+                  My Squad
                 </Button>
                 <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="Logout">
                   <LogOut className="size-5" />
                 </Button>
               </>
             ) : (
-              <Button asChild className="bg-primary hover:bg-primary/90 text-black shadow-[0_0_15px_rgba(234,179,8,0.3)] transition-all hover:shadow-[0_0_25px_rgba(234,179,8,0.5)] uppercase text-xs tracking-wider font-bold">
-                <Link href="/login">Login</Link>
+              <Button render={<Link href="/login" />} className="bg-primary hover:bg-primary/90 text-black shadow-[0_0_15px_rgba(234,179,8,0.3)] transition-all hover:shadow-[0_0_25px_rgba(234,179,8,0.5)] uppercase text-xs tracking-wider font-bold">
+                Login
               </Button>
             )}
           </div>

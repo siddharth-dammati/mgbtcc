@@ -230,8 +230,8 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-              <Button size="lg" asChild className="w-full h-14 bg-yellow-500 hover:bg-yellow-400 text-black font-black uppercase tracking-widest text-sm rounded-none border border-yellow-500">
-                <Link href="/register">REGISTER NOW & SHARE WITH SQUAD!</Link>
+              <Button size="lg" render={<Link href="/register" />} className="w-full h-14 bg-yellow-500 hover:bg-yellow-400 text-black font-black uppercase tracking-widest text-sm rounded-none border border-yellow-500">
+                REGISTER NOW & SHARE WITH SQUAD!
               </Button>
             </motion.div>
 
