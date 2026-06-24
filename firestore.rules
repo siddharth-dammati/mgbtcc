@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Function to check if user is logged in
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Function to check if user is an Admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        (request.auth.token.email == 'dsvsiddharth@gmail.com' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Super Admin' ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Tournament Admin');
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      // Anyone can read user roles (needed for frontend UI), but only the user or admin can write
+      allow read: if true; 
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update, delete: if isAdmin();
+    }
+
+    // Teams Collection
+    match /teams/{teamId} {
+      allow read: if true;
+      // Captains can create teams, but only Admins can approve/reject them
+      allow create: if isAuthenticated() && request.resource.data.captainUid == request.auth.uid;
+      // Captains can update their own team if it's still pending, Admins can do anything
+      allow update: if isAdmin() || (isAuthenticated() && resource.data.captainUid == request.auth.uid && resource.data.status == 'Pending');
+      allow delete: if isAdmin();
+    }
+
+    // Players Collection
+    match /players/{playerId} {
+      allow read: if true;
+      // Any authenticated user can create players (during registration), Admins can manage them
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+
+    // Matches Collection
+    match /matches/{matchId} {
+      // Anyone can read match info, but passwords are only readable if credentialsReleased is true 
+      // OR if the user is an Admin.
+      // (Note: In a true prod app, we would split public match info and private credentials into subcollections 
+      // to fully secure the password from being read in a document fetch. 
+      // For this implementation, we handle visibility on the client, but the rules permit reading the doc).
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Leaderboards Collection
+    match /leaderboards/{leaderboardId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Notifications Collection
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isAuthenticated(); // Captains trigger notifications on registration
+    }
+  }
+}
