@@ -113,11 +113,9 @@ export default function MatchesManagementPage() {
           <p className="text-muted-foreground font-medium text-sm mt-1">Create matches, assign up to 12 squads, and release custom room IDs.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="h-11 px-6 bg-primary hover:bg-primary/90 text-black font-bold uppercase tracking-wider transition-all gap-2">
-              <Plus className="size-4" /> Create Match
-            </Button>
-          </DialogTrigger>
+          <Button onClick={() => setIsDialogOpen(true)} className="h-11 px-6 bg-primary hover:bg-primary/90 text-black font-bold uppercase tracking-wider transition-all gap-2">
+            <Plus className="size-4" /> Create Match
+          </Button>
           <DialogContent className="max-w-[95vw] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl bg-[#0a0a0c] border-white/10 text-white max-h-[90vh] overflow-y-auto p-0">
             <div className="p-6 border-b border-white/10 bg-black/40 sticky top-0 z-10 backdrop-blur-xl">
               <DialogTitle className="text-xl font-heading font-bold text-white tracking-wider flex items-center gap-3">

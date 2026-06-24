@@ -23,7 +23,7 @@ const LANGUAGES = ["English", "Hindi", "Telugu", "Tamil", "Kannada", "Malayalam"
 
 const joinSchema = z.object({
   teamCode: z.string().length(6, "Team Code must be exactly 6 characters").toUpperCase(),
-  isSubstitute: z.boolean().default(false),
+  isSubstitute: z.boolean(),
   fullName: z.string().min(2, "Required"),
   inGameName: z.string().min(2, "Required"),
   dob: z.string().min(1, "Required"),
